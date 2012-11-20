@@ -190,11 +190,33 @@ class Police extends Person {
   }
 
   public void move() {
-    List<Thief> nearThiefs = new ArrayList<Thief>();
+    findNearestThief();
+    if (nearestThief != null) {
+      decideDirectionToFollowThief();
+      isTryingCapture = true;
+    }
+    else {
+      isTryingCapture = false;
+    }
     
+    while(! canMove(moveDirection)) {
+      moveDirection = clockwiseDirection(moveDirection);
+    }
+    moveTo(moveDirection);
+
+    if (!isTryingCapture) {
+      if (int(random(100)) == 0) {
+        moveDirection = numToDirection(random(4));
+      }
+    }
+  }
+
+  private void findNearestThief() {
+    List<Thief> nearThiefs = new ArrayList<Thief>();
+
     for (int xx = -25; xx <= 25; xx++) {
       for (int yy = -25; yy <= 25; yy++) {
-       GameObject obj = map.get(xpos + xx, ypos + yy);
+        GameObject obj = map.get(xpos + xx, ypos + yy);
         if (obj instanceof Thief) {
           nearThiefs.add((Thief)obj);
         }
@@ -214,8 +236,11 @@ class Police extends Person {
           nearestDist = dist;
         }
       }
+    }
+  }
 
-      int dx = this.xpos - nearestThief.xpos;
+  private void decideDirectionToFollowThief() {
+    int dx = this.xpos - nearestThief.xpos;
       int dy = this.ypos - nearestThief.ypos;
 
       boolean moveVirt;
@@ -251,22 +276,6 @@ class Police extends Person {
           moveDirection = Direction.DOWN;
         }
       }
-      
-    }
-    else {
-      isTryingCapture = false;
-    }
-    
-    while(! canMove(moveDirection)) {
-      moveDirection = clockwiseDirection(moveDirection);
-    }
-    moveTo(moveDirection);
-
-    if (!isTryingCapture) {
-      if (int(random(100)) == 0) {
-        moveDirection = numToDirection(random(4));
-      }
-    }
   }
 
   public void draw() {
