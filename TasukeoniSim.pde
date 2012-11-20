@@ -51,20 +51,10 @@ class Game {
     noStroke();
     pushStyle();
     ellipseMode(CENTER);
+    
     for (Iterator<GameObject> it = objs.iterator(); it.hasNext(); ) {
       GameObject obj = it.next();
-      if (obj instanceof Police) {
-        fill(255, 0, 0);
-        ellipse(obj.xpos, obj.ypos, 10, 10);
-      }
-      else if (obj instanceof Thief) {
-        fill(0, 255, 0);
-        ellipse(obj.xpos, obj.ypos, 10, 10);
-      }
-      else {
-        fill(0, 0, 255);
-        ellipse(obj.xpos, obj.ypos, 10, 10);
-      }
+      obj.draw();
     }
     popStyle();
   }
@@ -82,21 +72,18 @@ class Map {
     map = new GameObject[height][width];
     nextMap = new GameObject[height][width];
 
-    for (int x = 0; x < width; x++) {
-      for (int y = 0; y < height; y++) {
-        if (! (get(x, y) instanceof Person)) {
-          set(x, y, get(x, y));
-        }
-      }
-    }
   }
 
   public GameObject get(int x, int y) {
     return map[(y + height) % height][(x + width) % width];
   }
 
-  public void set(int x, int y, GameObject obj) {
-    nextMap[(y + height) % height][(x + width) % width] = obj;
+  public PVector set(int x, int y, GameObject obj) {
+    x = (x + width) % width;
+    y = (y + height) % height;
+    nextMap[y][x] = obj;
+
+    return new PVector(x, y);
   }
 
   public void updateMap() {
@@ -104,9 +91,7 @@ class Map {
     nextMap = new GameObject[width][height];
     for (int x = 0; x < width; x++) {
       for (int y = 0; y < height; y++) {
-        if (!(get(x, y) instanceof Person)) {
-          set(x, y, get(x, y));
-        }
+        set(x, y, get(x, y));
       }
     }
   }
@@ -124,6 +109,8 @@ abstract class GameObject {
 
     this.map = map;
   }
+
+  public abstract void draw();
 }
 
 abstract class Person extends GameObject{
@@ -149,9 +136,9 @@ abstract class Person extends GameObject{
   }
 
   public void moveTo(int x, int y) {
-    xpos = (xpos + map.width + x) % map.width;
-    ypos = (ypos + map.height + y) % map.height;
-    map.set(x, y, this);
+    PVector normalized = map.set(xpos + x, ypos + y, this);
+    xpos = int(normalized.x);
+    ypos = int(normalized.y);
   }
 
   public boolean canMove(Direction direction) {
@@ -180,19 +167,127 @@ class Thief extends Person {
       moveDirection = clockwiseDirection(moveDirection);
     }
     moveTo(moveDirection);
+
+    if (int(random(100)) == 0) {
+      moveDirection = numToDirection(random(4));
+    }
+  }
+
+  public void draw() {
+    pushStyle();
+    fill(0, 255, 0);
+    ellipse(xpos, ypos, 10, 10);
+    popStyle();
   }
 }
 
 class Police extends Person {
+  public boolean isTryingCapture;
+  private Thief nearestThief = null;
+  
   public Police(int x, int y, Map map) {
     super(x, y, map);
   }
 
   public void move() {
+    List<Thief> nearThiefs = new ArrayList<Thief>();
+    
+    for (int xx = -25; xx <= 25; xx++) {
+      for (int yy = -25; yy <= 25; yy++) {
+       GameObject obj = map.get(xpos + xx, ypos + yy);
+        if (obj instanceof Thief) {
+          nearThiefs.add((Thief)obj);
+        }
+      }
+    }
+
+    nearestThief = null;
+    float nearestDist = 500 * 500;
+
+    if (nearThiefs.size() > 0) {
+      isTryingCapture = true;
+      for (Iterator<Thief> it = nearThiefs.iterator(); it.hasNext(); ) {
+        Thief thief = it.next();
+        float dist = dist(xpos, ypos, thief.xpos, thief.ypos);
+        if (dist < nearestDist) {
+          nearestThief = thief;
+          nearestDist = dist;
+        }
+      }
+
+      int dx = this.xpos - nearestThief.xpos;
+      int dy = this.ypos - nearestThief.ypos;
+
+      boolean moveVirt;
+
+      if (int(abs(dy)) == 0) {
+        moveVirt = false;
+      }
+      else if (abs(dx) == 0) {
+        moveVirt = true;
+      }
+      else {
+        if (int(random(2)) == 0) {
+          moveVirt = true;
+        }
+        else {
+          moveVirt = false;
+        }
+      }
+
+      if (!moveVirt) {
+        if (dx > 0) {
+          moveDirection = Direction.LEFT;
+        }
+        else {
+          moveDirection = Direction.RIGHT;
+        }
+      }
+      else {
+        if (dy > 0) {
+          moveDirection = Direction.UP;
+        }
+        else {
+          moveDirection = Direction.DOWN;
+        }
+      }
+      
+    }
+    else {
+      isTryingCapture = false;
+    }
+    
     while(! canMove(moveDirection)) {
       moveDirection = clockwiseDirection(moveDirection);
     }
     moveTo(moveDirection);
+
+    if (!isTryingCapture) {
+      if (int(random(100)) == 0) {
+        moveDirection = numToDirection(random(4));
+      }
+    }
+  }
+
+  public void draw() {
+    pushStyle();
+    fill(255, 0, 0);
+    if (isTryingCapture) {
+      ellipse(xpos, ypos, 25, 25);
+    }
+    else {
+      ellipse(xpos, ypos, 10, 10);
+    }
+
+    if (nearestThief != null) {
+      stroke(255, 0, 0);
+      line(xpos, ypos, nearestThief.xpos, nearestThief.ypos);
+    }
+
+    noStroke();
+    fill (255, 255, 0, 100);
+    rect(xpos, ypos, 50, 50);
+    popStyle();
   }
 }
 
@@ -264,6 +359,8 @@ void setup() {
 }
 
 void draw() {
+  rectMode(RADIUS);
+  ellipseMode(RADIUS);
   game.doTurn();
   game.draw();
 }
