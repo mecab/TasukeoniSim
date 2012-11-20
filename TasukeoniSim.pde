@@ -119,11 +119,6 @@ class Map {
   public void updateMap() {
     map = nextMap;
     nextMap = new GameObject[width][height];
-    for (int x = 0; x < width; x++) {
-      for (int y = 0; y < height; y++) {
-        set(x, y, get(x, y));
-      }
-    }
   }
 }
 
