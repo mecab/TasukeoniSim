@@ -45,6 +45,29 @@ class Game {
       police.move();
     }
   }
+
+  public void draw() {
+    background(255, 255, 255);
+    noStroke();
+    pushStyle();
+    ellipseMode(CENTER);
+    for (Iterator<GameObject> it = objs.iterator(); it.hasNext(); ) {
+      GameObject obj = it.next();
+      if (obj instanceof Police) {
+        fill(255, 0, 0);
+        ellipse(obj.xpos, obj.ypos, 10, 10);
+      }
+      else if (obj instanceof Thief) {
+        fill(0, 255, 0);
+        ellipse(obj.xpos, obj.ypos, 10, 10);
+      }
+      else {
+        fill(0, 0, 255);
+        ellipse(obj.xpos, obj.ypos, 10, 10);
+      }
+    }
+    popStyle();
+  }
 }
 
 class Map {
@@ -228,6 +251,7 @@ Direction counterDirection(Direction direction) {
 Game game;
 
 void setup() {
+  size(500, 500);
   Map map = new Map(500, 500);
   List<GameObject> objs = new ArrayList<GameObject>();
 
@@ -241,4 +265,5 @@ void setup() {
 
 void draw() {
   game.doTurn();
+  game.draw();
 }
