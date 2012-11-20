@@ -4,7 +4,8 @@ public enum Direction {
   UP (0, -1),
   DOWN (0, 1),
   LEFT (-1, 0),
-  RIGHT (1, 0);
+  RIGHT (1, 0),
+  STOP (0, 0);
   
   private final int dx;
   private final int dy;
@@ -28,8 +29,11 @@ public enum Direction {
     else if (this == Direction.LEFT) {
       return 2;
     }
-    else {
+    else if (this == Direction.RIGHT){
       return 3;
+    }
+    else {
+      return 4;
     }
   }
 }

@@ -2,8 +2,9 @@ import processing.core.*;
 
 public enum ThiefState {
   FREE (0),
-  CAPTURED (1),
-  TRY (2);
+  CAPTURING (1),
+  CAPTURED (2),
+  TRY (3);
   
   private final int state;
 
