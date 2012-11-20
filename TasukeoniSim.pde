@@ -2,21 +2,25 @@ class Game {
   private Map map;
   private List<GameObject> objs;
 
-  public Game(Map map) {
-    objs = new ArrayList<GameObject>();
+  public Game(Map map, List<GameObject> objs) {
+    this.objs = objs;
+    for (Iterator<GameObject> it = objs.iterator(); it.hasNext(); ) {
+      GameObject obj = it.next();
+      map.set(obj.xpos, obj.ypos, obj);
+    }
+    this.map = map;
+    map.updateMap();
   }
 
-  public doTurn() { // 1ターン回す
-    moveTheif();
-    validateTheif();
+  public void doTurn() { // 1ターン回す
+    moveThief();
     movePolice();
-    validatePolice();
 
-    resetMovedStatus();
+    map.updateMap();
   }
 
   // 衝突を気にしないで動かしてみる
-  private moveThief() {
+  private void moveThief() {
     for (Iterator<GameObject> it = objs.iterator(); it.hasNext(); ) {
       GameObject obj = it.next();
       if (! (obj instanceof Thief)) {
@@ -24,57 +28,21 @@ class Game {
       }
 
       // obj が Theifのとき
-      Thief thief = (Theif)obj;
-      theif.move();
+      Thief thief = (Thief)obj;
+      thief.move();
     }
   }
 
-  private validateTheif() {
-    for (Iterator<GameObject> it = objs.iterator(); it.hasNext(); ) {
-      GameObject obj = it.next();
-      if (! (obj instanceof Thief)) {
-        continue;
-      }
-
-      Theif theif = (Theif)obj;
-      theif.validate();
-    }
-  }
-
-  private movePolice() {
-    for (Iterator<GameObject> it = objs.iterator(); it.hasNext(); ) {
-      GameObject obj = it.next();
-      if (! (obj instanceof Thief)) {
-        continue;
-      }
-
-      // obj が Theifのとき
-      Thief thief = (Theif)obj;
-      theif.move();
-    }
-  }
-
-  private validateTheif() {
+  private void movePolice() {
     for (Iterator<GameObject> it = objs.iterator(); it.hasNext(); ) {
       GameObject obj = it.next();
       if (! (obj instanceof Police)) {
         continue;
       }
 
+      // obj が Theifのとき
       Police police = (Police)obj;
-      police.validate();
-    }
-  }
-
-  private resetMovedStatus() {
-    for (Iterator<GameObject> it = objs.iterator(); it.hasNext(); ) {
-      GameObject obj = it.next();
-      if (! (obj instanceof Person)) {
-        continue;
-      }
-
-      Person person = (Person)obj;
-      person.wasMoved = false;
+      police.move();
     }
   }
 }
@@ -83,29 +51,45 @@ class Map {
   public int width;
   public int height;
   private GameObject[][] map;
+  private GameObject[][] nextMap;
   
   public Map(int width, int height) {
     this.width = width;
     this.height =height;
-    _map = new GameObject[width][height];
+    map = new GameObject[height][width];
+    nextMap = new GameObject[height][width];
+
+    for (int x = 0; x < width; x++) {
+      for (int y = 0; y < height; y++) {
+        if (! (get(x, y) instanceof Person)) {
+          set(x, y, get(x, y));
+        }
+      }
+    }
   }
 
-  public boolean get(int x, int y) {
-    /*if (map[y][x] == null) {
-      return true;
-    }
+  public GameObject get(int x, int y) {
+    return map[(y + height) % height][(x + width) % width];
+  }
 
-    if (map[y][x] instanceof Person)) {
-      if (!(Person)map[y][x].wasMoved) {
-        return true;
+  public void set(int x, int y, GameObject obj) {
+    nextMap[(y + height) % height][(x + width) % width] = obj;
+  }
+
+  public void updateMap() {
+    map = nextMap;
+    nextMap = new GameObject[width][height];
+    for (int x = 0; x < width; x++) {
+      for (int y = 0; y < height; y++) {
+        if (!(get(x, y) instanceof Person)) {
+          set(x, y, get(x, y));
+        }
       }
-    }*/
-
-    return map[y][x];
+    }
   }
 }
 
-class GameObject {
+abstract class GameObject {
   public int xpos;
   public int ypos;
   
@@ -114,45 +98,52 @@ class GameObject {
   public GameObject(int x, int y, Map map) {
     xpos = x;
     ypos = y;
-    xnext = x;
-    ynext = y;
+
     this.map = map;
   }
 }
 
-class Person extends GameObject{
-  public int xnext;
-  public int ynext;
-
-  public Direction moveDicrection;
+abstract class Person extends GameObject{
+  public Direction moveDirection;
   public int moveSpeed;
-  public boolean wasMoved;
   
   public Person(int x, int y, Map map) {
     super(x, y, map);
-    xnext = x;
-    ynext = y;
     moveSpeed = 1;
     moveDirection = numToDirection(random(4));
   }
 
-  public move() {
-    moveTo(moveDirection);
-  }
+  public abstract void move();
 
-  public moveTo(Direction direction) {
+  public void moveTo(Direction direction) {
     PVector v = direction.asPVector();
-    MoveTo(int(v.x), int(v.y));
+    moveTo(int(v.x), int(v.y));
   }
 
-  public moveTo(Direction direction, int scale) {
+  public void moveTo(Direction direction, int scale) {
     PVector v = direction.asPVector();
-    MoveTo(int(v.x) * scale, int(v.y) * scale);
+    moveTo(int(v.x) * scale, int(v.y) * scale);
   }
 
-  public moveTo(int x, int y) {
-    nextx = (xpos + mapWidth + x) % mapHeight;
-    nexty = (ypos + mapHeight + x) % mapWidth;
+  public void moveTo(int x, int y) {
+    xpos = (xpos + map.width + x) % map.width;
+    ypos = (ypos + map.height + y) % map.height;
+    map.set(x, y, this);
+  }
+
+  public boolean canMove(Direction direction) {
+    PVector v = direction.asPVector();
+    GameObject obj = map.get(int(xpos + v.x), int(ypos + v.y));
+    if (obj == null) {
+      return true;
+    }
+    if (obj instanceof Person) {
+      // 次のターンにはどっかに動いてるはずだから動ける
+      return true;
+    }
+    else {
+      return false;
+    }
   }
 }
 
@@ -161,48 +152,11 @@ class Thief extends Person {
     super(x, y, map);
   }
 
-  // 移動したい先を見て、実際に動かしたりぶつかったらうまいこと調整する
-  public void validate() {
-
-    // TODO: 調節した先は本当に動けるの？複数回validateしてあげてもいいかもね
-    
-    GameObject objInTarget = map.get(nextx, nexty);
-
-    // ポリ公だったらとりあえず逃げる
-    if (objInTarget instanceof Police) {
-      moveDirection = counterDirection(moveDirection);
-      move();
+  public void move() {
+    while(! canMove(moveDirection)) {
+      moveDirection = clockwiseDirection(moveDirection);
     }
-
-    else if (objInTarget instanceof Theif) {
-      Theif theif = (Theif)objInTarget;
-      // もう動いてた人がいたら諦める
-      if (theif.wasMoved) {
-        nextx = x;
-        nexty = y;
-      }
-      else {
-        // 動いてなかったら先にうごいちゃう
-      }
-    }
-
-    else if (objInTarget != null) {
-      // 壁その他。とりあえず違う場所に行く。
-      Direction nextD = moveDirection;
-      while (nextD != moveDirection) {
-        nextD = numToDirection(random(4));
-      }
-      moveDirection = nextD;
-      move();
-    }
-    
-    else {
-      // 運よくあいてた。そのまま動く
-    }
-
-    xpos = nextx;
-    ypos = nexty;
-    wasMoved = true;
+    moveTo(moveDirection);
   }
 }
 
@@ -210,12 +164,19 @@ class Police extends Person {
   public Police(int x, int y, Map map) {
     super(x, y, map);
   }
+
+  public void move() {
+    while(! canMove(moveDirection)) {
+      moveDirection = clockwiseDirection(moveDirection);
+    }
+    moveTo(moveDirection);
+  }
 }
 
 Direction numToDirection(float d) {
   int id = int(d) % 4;
   
-  switch(d) {
+  switch(id) {
   case 0:
     return Direction.UP;
   case 1:
@@ -224,26 +185,60 @@ Direction numToDirection(float d) {
     return Direction.LEFT;
   case 3:
     return Direction.RIGHT;
+  default:
+    return Direction.UP;
+  }
+}
+
+Direction clockwiseDirection(Direction direction) {
+  int id = direction.asInt();
+  
+  switch(id) {
+  case 0:
+    return Direction.RIGHT;
+  case 1:
+    return Direction.DOWN;
+  case 2:
+    return Direction.LEFT;
+  case 3:
+    return Direction.RIGHT;
+  default:
+    return Direction.UP;
   }
 }
 
 Direction counterDirection(Direction direction) {
-  switch(direction) {
-  case Direction.UP:
+  int id = direction.asInt();
+  
+  switch(id) {
+  case 0:
     return Direction.DOWN;
-  case Direction.DOWN:
+  case 1:
     return Direction.UP;
-  case Direction.LEFT:
+  case 2:
     return Direction.RIGHT;
-  case Direction.RIGHT:
+  case 3:
     return Direction.LEFT;
+  default:
+    return numToDirection(1 + random(4));
   }
+  
 }
 
+Game game;
+
 void setup() {
+  Map map = new Map(500, 500);
+  List<GameObject> objs = new ArrayList<GameObject>();
+
+  for (int i = 0; i < 10; i++) {
+    objs.add(new Thief(int(random(500)), int(random(500)), map));
+    objs.add(new Police(int(random(500)), int(random(500)), map));
+  }
+  game = new Game(map, objs);
 
 }
 
 void draw() {
-
+  game.doTurn();
 }
