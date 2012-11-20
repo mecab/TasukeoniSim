@@ -188,6 +188,7 @@ abstract class Person extends GameObject{
 
 class Thief extends Person {
   public ThiefState state;
+  private Police nearestPolice;
 
   public Thief(int x, int y, Map map) {
     super(x, y, map);
@@ -200,6 +201,7 @@ class Thief extends Person {
     }
 
     if (state == ThiefState.CAPTURING) {
+      moveSpeed = 1;
       if (xpos < pollX) {
         moveDirection = Direction.RIGHT;
       }
@@ -219,12 +221,24 @@ class Thief extends Person {
       }
     }
 
+    if (state == ThiefState.FREE) {
+      findNearestPolice();
+      if (nearestPolice != null) {
+        decideDirectionToEscapeFromPolice();
+        moveSpeed = 1;
+      }
+      else {
+        moveSpeed = 2;
+      }
+    }
+
+
     while(! canMove(moveDirection)) {
       moveDirection = clockwiseDirection(moveDirection);
     }
     moveTo(moveDirection);
 
-    if (state == ThiefState.FREE) {
+    if (state == ThiefState.FREE && nearestPolice == null) {
       if (int(random(100)) == 0) {
         moveDirection = numToDirection(random(4));
       }
@@ -233,13 +247,67 @@ class Thief extends Person {
 
   public void draw() {
     pushStyle();
-    fill(0, 255, 0);
+    if (isFree()) {
+      fill(0, 255, 0);
+    }
+    else {
+      fill(0, 128, 0);
+    }
     ellipse(xpos, ypos, 10, 10);
     popStyle();
   }
 
   public boolean isFree() {
     return (state == ThiefState.FREE || state == ThiefState.TRY);
+  }
+
+   private void findNearestPolice() {
+    List<Police> nearPolices = new ArrayList<Police>();
+
+    for (int xx = -30; xx <= 30; xx++) {
+      for (int yy = -30; yy <= 30; yy++) {
+        GameObject obj = map.get(xpos + xx, ypos + yy);
+        if (obj instanceof Police) {
+          nearPolices.add((Police)obj);
+        }
+      }
+    }
+
+    nearestPolice = null;
+    float nearestDist = Float.MAX_VALUE;
+
+    if (nearPolices.size() > 0) {
+      for (Iterator<Police> it = nearPolices.iterator(); it.hasNext(); ) {
+        Police police = it.next();
+        float dist = dist(xpos, ypos, police.xpos, police.ypos);
+        if (dist < nearestDist) {
+          nearestPolice = police;
+          nearestDist = dist;
+        }
+      }
+    }
+  }
+
+  private void decideDirectionToEscapeFromPolice() {
+    int dx = this.xpos - nearestPolice.xpos;
+    int dy = this.ypos - nearestPolice.ypos;
+
+    if (abs(dx) > abs(dy)) {
+      if (dx < 0) {
+        moveDirection = Direction.LEFT;
+      }
+      else {
+        moveDirection = Direction.RIGHT;
+      }
+    }
+    else {
+      if (dy < 0) {
+        moveDirection = Direction.UP;
+      }
+      else {
+        moveDirection = Direction.DOWN;
+      }
+    }
   }
 }
 
@@ -288,15 +356,7 @@ class Police extends Person {
   }
 
   private void capture(Direction direction) {
-    int i;
-    if (direction == Direction.UP || direction == Direction.DOWN) {
-      i = min(dy, moveSpeed);
-    }
-    else {
-      i = min(dx, moveSpeed);
-    }
-    
-    for (; i > 0; i--) {
+    for (int i = 1; i > 0; i--) {
       GameObject obj = map.get(xpos, ypos, direction, i);
       if (obj instanceof Thief && ((Thief)obj).isFree()) {
         ((Thief)obj).state = ThiefState.CAPTURING;
@@ -309,10 +369,15 @@ class Police extends Person {
     dy = Integer.MAX_VALUE;
     List<Thief> nearThiefs = new ArrayList<Thief>();
 
-    for (int xx = -25; xx <= 25; xx++) {
-      for (int yy = -25; yy <= 25; yy++) {
+    for (int xx = -30; xx <= 30; xx++) {
+      for (int yy = -30; yy <= 30; yy++) {
         GameObject obj = map.get(xpos + xx, ypos + yy);
         if (obj instanceof Thief) {
+          if (dist(xpos, ypos, obj.xpos, obj.ypos) > 30) {
+            // 端っこで震えるの対策
+            continue;
+          }
+          
           if (((Thief)obj).isFree()) {
             nearThiefs.add((Thief)obj);
           }
@@ -392,7 +457,7 @@ class Police extends Person {
 
     noStroke();
     fill (255, 255, 0, 100);
-    rect(xpos, ypos, 50, 50);
+    rect(xpos, ypos, 60, 60);
     popStyle();
   }
 }
@@ -465,8 +530,8 @@ void setup() {
 }
 
 void draw() {
-  rectMode(RADIUS);
-  ellipseMode(RADIUS);
+  rectMode(CENTER);
+  ellipseMode(CENTER);
   game.doTurn();
   game.draw();
 }
